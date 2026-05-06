@@ -27,7 +27,9 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/swagger-resources/**",
                                 "/webjars/**",
-                                "/api/auth/**"
+                                "/api/auth/**",
+                                "/files/**"
+                                         
                         ).permitAll() // 로그인 화면, 소셜 로그인 요청은 허용
 
                         // 관리자 전용 api
