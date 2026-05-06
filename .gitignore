@@ -39,3 +39,6 @@ out/
 # 보안
 .env
 mysql_data/
+
+# 업로드 파일 제외
+uploads/
