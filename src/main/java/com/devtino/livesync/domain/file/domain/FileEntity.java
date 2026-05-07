@@ -1,7 +1,8 @@
-package com.devtino.livesync.file.domain;
+package com.devtino.livesync.domain.file.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.devtino.livesync.domain.member.entity.Member;
 
 /**
  * 파일 정보를 저장하는 Entity 클래스
@@ -43,10 +44,16 @@ public class FileEntity {
     private String fileKey;
 
     /**
-     * 업로드한 사용자 ID
-     * - 로그인 기능 연동 시 사용
-     * - 현재는 임시값으로 저장 가능
-     * - 나중에 JWT에서 userId 추출해서 저장
+     * 업로드한 사용자 (관리자)
      */
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
+    private Member member;
+
+    /**
+     * 파일 공개 여부
+     * - true  : 쇼호스트가 조회 가능
+     * - false : 관리자만 조회 가능
+     */
+    private boolean isPublic;
 }
