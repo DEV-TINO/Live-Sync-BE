@@ -1,12 +1,10 @@
 package com.devtino.livesync.global.config;
 
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -27,10 +25,24 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/swagger-resources/**",
                                 "/webjars/**",
-                                "/api/auth/**",
-                                "/files/**"
-                                         
+                                "/api/auth/**"
                         ).permitAll() // 로그인 화면, 소셜 로그인 요청은 허용
+
+                        // 파일 권한 설정 (관리자만 업로드/삭제, 쇼호스트는 조회만)
+
+                        // 1. 내 파일 조회는 로그인 사용자 모두 허용 (SHOWHOST + ADMIN)
+                        // - 반드시 /files/** 보다 먼저 선언해야 정상 동작
+                        .requestMatchers("/files/my").authenticated()
+
+                        // 2. 파일 업로드 → 관리자만 가능
+                        .requestMatchers("/files/upload").hasRole("ADMIN")
+
+                        // 3. 파일 삭제 → 관리자만 가능
+                        .requestMatchers("/files/{id}").hasRole("ADMIN")
+
+                        // 4. 전체 파일 조회 → 관리자만 가능
+                        // - 이 규칙이 /files/** 전체를 덮음
+                        .requestMatchers("/files/**").hasRole("ADMIN")
 
                         // 관리자 전용 api
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

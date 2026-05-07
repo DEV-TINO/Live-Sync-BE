@@ -34,7 +34,8 @@ public class GeneralAuthService implements AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .nickname(request.getNickname())
                 .loginType(LoginType.GENERAL)
-                .role(MemberRole.ROLE_SHOWHOST)
+                .role(MemberRole.ROLE_USER) // 관리자, 쇼호스트는 따로 부여 해야함
+                //.role(MemberRole.ROLE_SHOWHOST)
                 .build();
 
         memberRepository.save(member);
@@ -52,7 +53,11 @@ public class GeneralAuthService implements AuthService {
             throw new RuntimeException("비밀번호가 일치하지 않습니다.");
         }
         // 3. 성공 시 토큰(JWT) 발급 로직 연동
-        String accessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getNickname());
+//      String accessToken = jwtTokenProvider.createAccessToken(member.getId(), member.getNickname());
+        String accessToken = jwtTokenProvider.createAccessToken(
+                member.getId(),
+                member.getRole().name()
+        );
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
 
 

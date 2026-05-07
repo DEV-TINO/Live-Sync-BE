@@ -1,4 +1,4 @@
-package com.devtino.livesync.file.dto;
+package com.devtino.livesync.domain.file.dto;
 
 import lombok.*;
 
