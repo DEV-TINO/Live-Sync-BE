@@ -49,4 +49,21 @@ public class Memberdto {
     public static class ReissueRequest {
         private String refreshToken;
     }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ShowhostLoginRequest {
+        private Long memberId;
+        private String password;
+    }
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    public static class ShowhostResponse {
+        private Long id;
+        private String nickname;
+        private String loginId;
+    }
 }

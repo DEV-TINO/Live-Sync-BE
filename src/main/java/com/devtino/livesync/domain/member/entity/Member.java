@@ -48,5 +48,8 @@ public class Member {
         this.nickname = nickname;
         return this;
     }
-    
+
+    public void updatePassword(String password) {
+        this.password = password;
+    }
 }
