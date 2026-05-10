@@ -1,8 +1,9 @@
 package com.devtino.livesync.domain.file.domain;
 
+import com.devtino.livesync.domain.member.entity.Member;
+import com.devtino.livesync.domain.schedule.domain.Schedule;
 import jakarta.persistence.*;
 import lombok.*;
-import com.devtino.livesync.domain.member.entity.Member;
 
 /**
  * 파일 정보를 저장하는 Entity 클래스
@@ -51,8 +52,17 @@ public class FileEntity {
     private Member member;
 
     /**
+     * 이 파일이 속한 일정
+     * - 하나의 파일은 하나의 일정에 속함
+     * - 일정 기준으로 파일 조회 가능
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "schedule_id")
+    private Schedule schedule;
+
+    /**
      * 파일 공개 여부
-     * - true  : 쇼호스트가 조회 가능
+     * - true  : 쇼호스트 조회 가능
      * - false : 관리자만 조회 가능
      */
     private boolean isPublic;
