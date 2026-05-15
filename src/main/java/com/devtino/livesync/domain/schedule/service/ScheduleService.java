@@ -10,6 +10,9 @@ import com.devtino.livesync.domain.schedule.dto.ScheduleResponseDto;
 import com.devtino.livesync.domain.schedule.dto.ShowhostDto;
 import com.devtino.livesync.domain.schedule.dto.FileDto;
 import com.devtino.livesync.domain.schedule.repository.ScheduleRepository;
+import com.devtino.livesync.domain.notification.entity.NotificationType;
+import com.devtino.livesync.global.sse.NotificationService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +29,9 @@ public class ScheduleService {
     private final MemberRepository memberRepository;
     private final FileRepository fileRepository;
 
+    // SSE 알림 서비스
+    private final NotificationService notificationService;
+
     private final String uploadDir = System.getProperty("user.dir") + "/uploads";
 
     /*
@@ -37,7 +43,7 @@ public class ScheduleService {
         List<Member> showhosts = memberRepository.findAllById(request.getShowhostIds());
 
         if (showhosts.isEmpty()) {
-            throw new RuntimeException("쇼호스트가 존재하지 않습니다.");
+            throw new RuntimeException("선택된 쇼호스트가 존재하지 않습니다.");
         }
 
         // 2. 일정 생성
@@ -53,7 +59,21 @@ public class ScheduleService {
 
         scheduleRepository.save(schedule);
 
-        // 3. 파일 업로드
+        /*
+         * 3. 일정 생성 알림
+         * 쇼호스트에게 일정 배정 알림
+         */
+        for (Member showhost : showhosts) {
+            notificationService.send(
+                    showhost.getId(),
+                    "새로운 일정이 배정되었습니다",
+                    schedule.getTitle() + " (" + schedule.getStartTime() + ")",
+                    NotificationType.SCHEDULE,
+                    "/schedules/" + schedule.getId()
+            );
+        }
+
+        // 4. 파일 업로드
         if (files != null && !files.isEmpty()) {
 
             File dir = new File(uploadDir);
@@ -84,6 +104,19 @@ public class ScheduleService {
                             .build();
 
                     fileRepository.save(entity);
+
+                    /*
+                     * 파일 업로드 알림
+                     */
+                    for (Member showhost : showhosts) {
+                        notificationService.send(
+                                showhost.getId(),
+                                "파일이 업로드되었습니다",
+                                originalName + " (" + schedule.getTitle() + ")",
+                                NotificationType.FILE,
+                                "/schedules/" + schedule.getId()
+                        );
+                    }
 
                 } catch (Exception e) {
                     e.printStackTrace();

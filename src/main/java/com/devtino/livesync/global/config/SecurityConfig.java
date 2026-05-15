@@ -35,9 +35,9 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
 
-                        /*
-                         * 관리자 전용
-                         */
+                        .requestMatchers("/notifications/**").permitAll()
+
+                        // 관리자 전용
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 //
 //                        /*
