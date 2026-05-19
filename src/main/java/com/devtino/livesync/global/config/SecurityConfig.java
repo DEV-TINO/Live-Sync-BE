@@ -3,9 +3,8 @@ package com.devtino.livesync.global.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; // 추가
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -13,58 +12,68 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
-@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain httpSecurity(HttpSecurity http, JwtTokenProvider jwtTokenProvider) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           JwtTokenProvider jwtTokenProvider) throws Exception {
+
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable()) // 로컬 테스트를 위해 임시 비활성화
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // JWT 사용을 위한 설정
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/login/**", "/oauth2/**", // 공통 접근 경로
+
+                        /*
+                         * 인증 없이 허용
+                         */
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/swagger-resources/**",
-                                "/webjars/**",
-                                "/api/auth/**"
-                        ).permitAll() // 로그인 화면, 소셜 로그인 요청은 허용
+                                "/swagger-ui.html"
+                        ).permitAll()
 
-                        // 파일 권한 설정 (관리자만 업로드/삭제, 쇼호스트는 조회만)
+                        .requestMatchers("/notifications/**").permitAll()
 
-                        // 1. 내 파일 조회는 로그인 사용자 모두 허용 (SHOWHOST + ADMIN)
-                        // - 반드시 /files/** 보다 먼저 선언해야 정상 동작
-                        .requestMatchers("/files/my").authenticated()
-
-                        // 2. 파일 업로드 → 관리자만 가능
-                        .requestMatchers("/files/upload").hasRole("ADMIN")
-
-                        // 3. 파일 삭제 → 관리자만 가능
-                        .requestMatchers("/files/{id}").hasRole("ADMIN")
-
-                        // 4. 전체 파일 조회 → 관리자만 가능
-                        // - 이 규칙이 /files/** 전체를 덮음
-                        .requestMatchers("/files/**").hasRole("ADMIN")
-
-                        // 관리자 전용 api
+                        // 관리자 전용
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+//
+//                        /*
+//                         * 파일 관련 권한
+//                         */
+//
+//                        // 내 파일 조회 (로그인만)
+//                        .requestMatchers("/files/my").authenticated()
+//
+//                        // 업로드 / 삭제 → 관리자만
+//                        .requestMatchers("/files/upload").hasRole("ADMIN")
+//                        .requestMatchers("/files/{id}").hasRole("ADMIN")
+//
+//                        // 전체 조회 → 관리자만
+//                        .requestMatchers("/files/**").hasRole("ADMIN")
 
-                        // 쇼호스트 전용 api (쇼호스트와 관리자 모두 가능)
-                        .requestMatchers("/api/showhost/**").hasAnyRole("SHOWHOST", "ADMIN")
+                        /*
+                         * 일정
+                         */
 
-                        // 그 외 일반적인 api는 로그인만 해야 접근 가능
+                        // 생성 → 관리자만
+                        .requestMatchers("/schedules").hasRole("ADMIN")
+
+                        // 조회 → 관리자 + 쇼호스트
+                        .requestMatchers("/schedules/**").hasAnyRole("ADMIN", "SHOWHOST")
+
+                        /*
+                         * 나머지
+                         */
                         .anyRequest().authenticated()
-
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
-//                .oauth2Login(oauth2 -> oauth2
-//                                //.loginPage("/login") // 나중에 커스텀 로그인 페이지를 만들면 설정
-//                                .defaultSuccessUrl("/home") // 로그인 성공 후 이동할 경로
-//                        // .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService)) // 나중에 유저 정보를 DB에 저장할 때 사용할 서비스 연결 (Step 5)
-//                );
+                // JWT 필터
+                .addFilterBefore(
+                        new JwtAuthenticationFilter(jwtTokenProvider),
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }

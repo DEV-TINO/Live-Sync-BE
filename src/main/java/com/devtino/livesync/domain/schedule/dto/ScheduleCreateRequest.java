@@ -1,24 +1,26 @@
 package com.devtino.livesync.domain.schedule.dto;
 
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
-@Builder
-public class ScheduleResponseDto {
+@Setter
+public class ScheduleCreateRequest {
 
-    private Long id;
     private String title;
     private String color;
     private String location;
     private String description;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime startTime;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime endTime;
 
-    private List<ShowhostDto> showhosts;
-    private List<FileDto> files;
+    private List<Long> showhostIds;
 }

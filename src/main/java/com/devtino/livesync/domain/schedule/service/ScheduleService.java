@@ -1,136 +1,202 @@
 package com.devtino.livesync.domain.schedule.service;
 
-import com.devtino.livesync.domain.file.service.FileService;
+import com.devtino.livesync.domain.file.domain.FileEntity;
+import com.devtino.livesync.domain.file.repository.FileRepository;
 import com.devtino.livesync.domain.member.entity.Member;
 import com.devtino.livesync.domain.member.repository.MemberRepository;
-import com.devtino.livesync.domain.schedule.dto.ScheduleRequestDto;
+import com.devtino.livesync.domain.schedule.domain.Schedule;
+import com.devtino.livesync.domain.schedule.dto.ScheduleCreateRequest;
 import com.devtino.livesync.domain.schedule.dto.ScheduleResponseDto;
-import com.devtino.livesync.domain.schedule.entity.Schedule;
-import com.devtino.livesync.domain.schedule.entity.ScheduleAssignment;
-import com.devtino.livesync.domain.schedule.repository.ScheduleAssignmentRepository;
+import com.devtino.livesync.domain.schedule.dto.ShowhostDto;
+import com.devtino.livesync.domain.schedule.dto.FileDto;
 import com.devtino.livesync.domain.schedule.repository.ScheduleRepository;
+import com.devtino.livesync.domain.notification.entity.NotificationType;
+import com.devtino.livesync.global.sse.NotificationService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
-    private final ScheduleAssignmentRepository assignmentRepository;
     private final MemberRepository memberRepository;
-    private final FileService fileService;
+    private final FileRepository fileRepository;
 
-    // 일정 등록
-    @Transactional
-    public ScheduleResponseDto createSchedule(
-            ScheduleRequestDto requestDto,
-            List<MultipartFile> files,
-            Long creatorId
-    ) {
-        Member creator = findMemberById(creatorId);
+    // SSE 알림 서비스
+    private final NotificationService notificationService;
 
+    private final String uploadDir = System.getProperty("user.dir") + "/uploads";
+
+    /*
+     * 일정 생성 + 쇼호스트 배정 + 파일 업로드
+     */
+    public void createSchedule(ScheduleCreateRequest request, List<MultipartFile> files) {
+
+        // 1. 쇼호스트 조회
+        List<Member> showhosts = memberRepository.findAllById(request.getShowhostIds());
+
+        if (showhosts.isEmpty()) {
+            throw new RuntimeException("선택된 쇼호스트가 존재하지 않습니다.");
+        }
+
+        // 2. 일정 생성
         Schedule schedule = Schedule.builder()
-                .title(requestDto.getTitle())
-                .startTime(requestDto.getStartTime())
-                .endTime(requestDto.getEndTime())
-                .description(requestDto.getDescription())
-                .createdBy(creator)
+                .title(request.getTitle())
+                .color(request.getColor())
+                .location(request.getLocation())
+                .description(request.getDescription())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .showhosts(showhosts)
                 .build();
 
         scheduleRepository.save(schedule);
 
-        // 쇼호스트 배정
-        assignHosts(schedule, requestDto.getHostIds());
-
-        // 파일 첨부
-        if (files != null && !files.isEmpty()) {
-            fileService.uploadFilesToSchedule(files, creatorId, schedule);
+        /*
+         * 3. 일정 생성 알림
+         * 쇼호스트에게 일정 배정 알림
+         */
+        for (Member showhost : showhosts) {
+            notificationService.send(
+                    showhost.getId(),
+                    "새로운 일정이 배정되었습니다",
+                    schedule.getTitle() + " (" + schedule.getStartTime() + ")",
+                    NotificationType.SCHEDULE,
+                    "/schedules/" + schedule.getId()
+            );
         }
 
-        return ScheduleResponseDto.from(schedule);
-    }
-
-    // 월별 일정 조회
-    public List<ScheduleResponseDto> getSchedulesByMonth(int year, int month) {
-        return scheduleRepository.findByYearAndMonth(year, month).stream()
-                .map(ScheduleResponseDto::from)
-                .collect(Collectors.toList());
-    }
-
-    // 일정 상세 조회
-    public ScheduleResponseDto getSchedule(Long scheduleId) {
-        return ScheduleResponseDto.from(findScheduleById(scheduleId));
-    }
-
-    // 일정 수정
-    @Transactional
-    public ScheduleResponseDto updateSchedule(
-            Long scheduleId,
-            ScheduleRequestDto requestDto,
-            List<MultipartFile> files,
-            Long memberId
-    ) {
-        Schedule schedule = findScheduleById(scheduleId);
-
-        schedule.update(
-                requestDto.getTitle(),
-                requestDto.getStartTime(),
-                requestDto.getEndTime(),
-                requestDto.getDescription()
-        );
-
-        // 쇼호스트 재배정
-        assignmentRepository.deleteByScheduleId(scheduleId);
-        schedule.getAssignments().clear();
-        assignHosts(schedule, requestDto.getHostIds());
-
-        // 파일 추가 업로드
+        // 4. 파일 업로드
         if (files != null && !files.isEmpty()) {
-            fileService.uploadFilesToSchedule(files, memberId, schedule);
+
+            File dir = new File(uploadDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            for (MultipartFile file : files) {
+
+                try {
+                    String originalName = file.getOriginalFilename();
+
+                    if (originalName == null || originalName.isEmpty()) {
+                        throw new RuntimeException("파일 이름이 없습니다.");
+                    }
+
+                    String savedName = UUID.randomUUID() + "_" + originalName;
+
+                    File dest = new File(dir, savedName);
+                    file.transferTo(dest);
+
+                    FileEntity entity = FileEntity.builder()
+                            .fileName(originalName)
+                            .fileKey(savedName)
+                            .fileUrl("/files/" + savedName)
+                            .schedule(schedule)
+                            .isPublic(true)
+                            .build();
+
+                    fileRepository.save(entity);
+
+                    /*
+                     * 파일 업로드 알림
+                     */
+                    for (Member showhost : showhosts) {
+                        notificationService.send(
+                                showhost.getId(),
+                                "파일이 업로드되었습니다",
+                                originalName + " (" + schedule.getTitle() + ")",
+                                NotificationType.FILE,
+                                "/schedules/" + schedule.getId()
+                        );
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    throw new RuntimeException("파일 저장 실패");
+                }
+            }
         }
-
-        return ScheduleResponseDto.from(schedule);
     }
 
-    // 일정 삭제
-    @Transactional
-    public void deleteSchedule(Long scheduleId) {
-        scheduleRepository.delete(findScheduleById(scheduleId));
+    /*
+     * 전체 일정 조회 (관리자)
+     */
+    public List<ScheduleResponseDto> getAllSchedules() {
+
+        return scheduleRepository.findAll().stream()
+                .map(this::toDto)
+                .toList();
     }
 
-    // 존재하지 않는 경우
+    /*
+     * 일정 상세 조회
+     */
+    public ScheduleResponseDto getSchedule(Long id) {
 
-    private Schedule findScheduleById(Long scheduleId) {
-        return scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 일정입니다."));
+        Schedule schedule = scheduleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("일정 없음"));
+
+        return toDto(schedule);
     }
 
-    private Member findMemberById(Long memberId) {
-        return memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+    /*
+     * 쇼호스트 → 내 일정 조회
+     */
+    public List<ScheduleResponseDto> getMySchedules(Long memberId) {
+
+        return scheduleRepository.findByShowhosts_Id(memberId)
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
-    private void assignHosts(Schedule schedule, List<Long> hostIds) {
-        if (hostIds == null || hostIds.isEmpty()) return;
+    /*
+     * Entity → DTO 변환
+     */
+    private ScheduleResponseDto toDto(Schedule schedule) {
 
-        hostIds.forEach(hostId -> {
-            Member host = findMemberById(hostId);
+        return ScheduleResponseDto.builder()
+                .id(schedule.getId())
+                .title(schedule.getTitle())
+                .color(schedule.getColor())
+                .location(schedule.getLocation())
+                .description(schedule.getDescription())
+                .startTime(schedule.getStartTime())
+                .endTime(schedule.getEndTime())
 
-            ScheduleAssignment assignment = ScheduleAssignment.builder()
-                    .schedule(schedule)
-                    .member(host)
-                    .appliedPay(null) // 단가 관리 구현 후 연동
-                    .build();
+                /*
+                 * 쇼호스트 리스트 변환
+                 */
+                .showhosts(
+                        schedule.getShowhosts().stream()
+                                .map(m -> ShowhostDto.builder()
+                                        .id(m.getId())
+                                        .name(m.getNickname())
+                                        .build())
+                                .toList()
+                )
 
-            schedule.getAssignments().add(assignment);
-            assignmentRepository.save(assignment);
-        });
+                /*
+                 * 파일 리스트 변환
+                 */
+                .files(
+                        schedule.getFiles().stream()
+                                .map(f -> FileDto.builder()
+                                        .id(f.getId())
+                                        .fileName(f.getFileName())
+                                        .fileUrl(f.getFileUrl())
+                                        .build())
+                                .toList()
+                )
+
+                .build();
     }
 }

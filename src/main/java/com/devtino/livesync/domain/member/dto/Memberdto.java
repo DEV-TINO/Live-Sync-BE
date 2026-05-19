@@ -77,4 +77,21 @@ public class Memberdto
         private String nickname;    // 닉네임
         private String affiliation; // 소속 변경 가능
     }
+  
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ShowhostLoginRequest {
+        private Long memberId;
+        private String password;
+    }
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    public static class ShowhostResponse {
+        private Long id;
+        private String nickname;
+        private String loginId;
+    }
 }

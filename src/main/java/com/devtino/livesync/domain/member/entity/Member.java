@@ -59,5 +59,8 @@ public class Member
     {
         this.nickname = nickname;
         this.affiliation = affiliation;
+      
+    public void updatePassword(String password) {
+        this.password = password;
     }
 }
