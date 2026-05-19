@@ -23,4 +23,7 @@ public class FileResponseDto {
      * 다운로드 URL
      */
     private String fileUrl;
+
+    private int version;
+    private boolean isLatest;
 }

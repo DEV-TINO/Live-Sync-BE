@@ -15,7 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Primary
-public class GeneralAuthService implements AuthService {
+public class GeneralAuthService implements AuthService
+{
 
     private final MemberRepository memberRepository;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -23,9 +24,11 @@ public class GeneralAuthService implements AuthService {
 
     @Override
     @Transactional
-    public void signup(Memberdto.SignupRequest request) {
+    public void signup(Memberdto.SignupRequest request)
+    {
         // 1. 중복 체크
-        if(memberRepository.findByLoginId(request.getLoginId()).isPresent()) {
+        if(memberRepository.findByLoginId(request.getLoginId()).isPresent())
+        {
             throw new RuntimeException("이미 존재하는 아이디입니다.");
         }
         // 2. Member 생성 및 비밀번호 암호화 저장
@@ -43,13 +46,15 @@ public class GeneralAuthService implements AuthService {
 
     @Override
     @Transactional
-    public Memberdto.JwtTokenResponse login(Memberdto.LoginRequest request) {
+    public Memberdto.JwtTokenResponse login(Memberdto.LoginRequest request)
+    {
         // 1. 아이디로 유저 찾기
         Member member = memberRepository.findByLoginId(request.getLoginId())
                 .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
         // 2. passwordEncoder.matches()로 비번 검증
-        if(!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+        if(!passwordEncoder.matches(request.getPassword(), member.getPassword()))
+        {
             throw new RuntimeException("비밀번호가 일치하지 않습니다.");
         }
         // 3. 성공 시 토큰(JWT) 발급 로직 연동
@@ -67,7 +72,9 @@ public class GeneralAuthService implements AuthService {
     }
 
     @Override
-    public void logout(Long memberId) {
+    @Transactional
+    public void logout(Long memberId)
+    {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new RuntimeException("해당 유저를 찾을 수 없습니다."));
         member.updateRefreshToken(null);
@@ -75,8 +82,10 @@ public class GeneralAuthService implements AuthService {
 
     @Override
     @Transactional
-    public Memberdto.JwtTokenResponse reissue(String refreshToken) {
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+    public Memberdto.JwtTokenResponse reissue(String refreshToken)
+    {
+        if (!jwtTokenProvider.validateToken(refreshToken))
+        {
             throw new RuntimeException("Refresh Token이 유효하지 않습니다.");
         }
 

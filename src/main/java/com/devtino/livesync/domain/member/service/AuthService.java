@@ -5,7 +5,8 @@ import com.devtino.livesync.domain.member.dto.Memberdto.LoginRequest;
 import com.devtino.livesync.domain.member.dto.Memberdto.MemberResponse;
 import com.devtino.livesync.domain.member.dto.Memberdto.SignupRequest;
 
-public interface AuthService {
+public interface AuthService
+{
 
     // 공통적인 회원가입
     void signup(SignupRequest request);

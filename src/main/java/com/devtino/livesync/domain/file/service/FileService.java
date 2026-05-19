@@ -5,14 +5,17 @@ import com.devtino.livesync.domain.file.dto.FileResponseDto;
 import com.devtino.livesync.domain.file.repository.FileRepository;
 import com.devtino.livesync.domain.member.entity.Member;
 import com.devtino.livesync.domain.member.repository.MemberRepository;
+import com.devtino.livesync.domain.schedule.entity.Schedule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -161,5 +164,118 @@ public class FileService {
         }
 
         fileRepository.delete(file);
+
     }
+        /*
+        일정 파일 업로드
+        */
+
+        @Transactional
+        public List<FileEntity> uploadFilesToSchedule(
+                List<MultipartFile> files,
+                Long memberId,
+                Schedule schedule
+    ) {
+            List<FileEntity> savedFiles = new ArrayList<>();
+
+            File dir = new File(uploadDir);
+            if (!dir.exists()) dir.mkdirs();
+
+            Member member = findMemberById(memberId);
+
+            // 전체 파일 사전 검증
+            for (MultipartFile file : files) {
+                String originalName = file.getOriginalFilename();
+                if (originalName == null || originalName.isEmpty()) {
+                    throw new RuntimeException("파일 이름이 없습니다.");
+                }
+                validateFileExtension(originalName);
+                validateFileSize(file);
+            }
+
+            for (MultipartFile file : files) {
+                try {
+                    String originalName = file.getOriginalFilename();
+                    String savedName = UUID.randomUUID() + extractExtension(originalName);
+
+                    File dest = new File(dir, savedName);
+                    file.transferTo(dest);
+
+                    String fileUrl = "/files/" + savedName;
+
+                    // 같은 일정 내 동일 파일명 → 구버전 처리 후 버전 증가
+                    int nextVersion = 1;
+                    var existingFile = fileRepository
+                            .findByScheduleIdAndFileNameAndIsLatestTrue(
+                                    schedule.getId(), originalName
+                            );
+
+                    if (existingFile.isPresent()) {
+                        existingFile.get().markAsOldVersion();
+                        nextVersion = existingFile.get().getVersion() + 1;
+                    }
+
+                    FileEntity savedFile = fileRepository.save(FileEntity.builder()
+                            .fileName(originalName)
+                            .fileUrl(fileUrl)
+                            .fileKey(savedName)
+                            .member(member)
+                            .isPublic(true)
+                            .schedule(schedule)
+                            .version(nextVersion)
+                            .isLatest(true)
+                            .build());
+
+                    savedFiles.add(savedFile);
+
+                } catch (Exception e) {
+                    throw new RuntimeException("파일 저장 실패: " + file.getOriginalFilename());
+                }
+            }
+            return savedFiles;
+        }
+
+        // 일정 파일 목록 조회 (최신 버전만)
+        public List<FileResponseDto> getScheduleFiles(Long scheduleId) {
+            return fileRepository.findByScheduleIdAndIsLatestTrue(scheduleId).stream()
+                    .map(this::toResponseDto)
+                    .collect(Collectors.toList());
+        }
+
+        // ========== 내부 헬퍼 ==========
+
+        private Member findMemberById(Long memberId) {
+            return memberRepository.findById(memberId)
+                    .orElseThrow(() -> new RuntimeException("존재하지 않는 회원입니다."));
+        }
+
+        private String extractExtension(String fileName) {
+            int index = fileName.lastIndexOf(".");
+            return index != -1 ? fileName.substring(index) : "";
+        }
+
+        private void validateFileExtension(String fileName) {
+            String ext = extractExtension(fileName).toLowerCase();
+            List<String> allowed = List.of(".pdf", ".docx", ".xlsx", ".ppt", ".pptx");
+            if (!allowed.contains(ext)) {
+                throw new RuntimeException("허용되지 않는 파일 형식입니다: " + ext);
+            }
+        }
+
+        private void validateFileSize(MultipartFile file) {
+            long maxSize = 50L * 1024 * 1024; // 50MB
+            if (file.getSize() > maxSize) {
+                throw new RuntimeException("파일 크기는 50MB를 초과할 수 없습니다.");
+            }
+        }
+
+        private FileResponseDto toResponseDto(FileEntity file) {
+            return FileResponseDto.builder()
+                    .id(file.getId())
+                    .fileName(file.getFileName())
+                    .fileUrl(file.getFileUrl())
+                    .version(file.getVersion())
+                    .isLatest(file.isLatest())
+                    .build();
+        }
 }

@@ -1,5 +1,6 @@
 package com.devtino.livesync.domain.file.domain;
 
+import com.devtino.livesync.domain.schedule.entity.Schedule;
 import jakarta.persistence.*;
 import lombok.*;
 import com.devtino.livesync.domain.member.entity.Member;
@@ -56,4 +57,24 @@ public class FileEntity {
      * - false : 관리자만 조회 가능
      */
     private boolean isPublic;
+
+    // 일정 연결
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "schedule_id")
+    private Schedule schedule;
+
+    // 버전 관리 v1 v2 v3
+    @Column(nullable = false)
+    @Builder.Default
+    private int version = 1;
+
+    // 최신 버전 여부
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isLatest = true;
+
+    // 구버전 처리 메서드
+    public void markAsOldVersion() {
+        this.isLatest = false;
+    }
 }

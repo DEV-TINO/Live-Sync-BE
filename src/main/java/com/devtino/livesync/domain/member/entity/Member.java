@@ -8,7 +8,8 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class Member {
+public class Member
+{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,6 +23,9 @@ public class Member {
     private String password;
 
     private String nickname;
+
+    // 마이페이지 - 소속
+    private String affiliation;
 
     // 가입 경로 구분
     @Enumerated(EnumType.STRING)
@@ -39,14 +43,21 @@ public class Member {
     private String refreshToken; // 추가
 
     // Refresh Token을 업데이트하거나 비우는(로그아웃) 메서드
-    public void updateRefreshToken(String refreshToken) {
+    public void updateRefreshToken(String refreshToken)
+    {
         this.refreshToken = refreshToken;
     }
 
     // 프로필 업데이트 (기존 로직 유지)
-    public Member update(String nickanme){
+    public Member update(String nickname)
+    {
         this.nickname = nickname;
         return this;
     }
-    
+
+    public void updateProfile(String nickname, String affiliation)
+    {
+        this.nickname = nickname;
+        this.affiliation = affiliation;
+    }
 }

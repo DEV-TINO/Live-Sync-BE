@@ -5,7 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface MemberRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long>
+{
 
     // 이미 가입된 유저인지 확인하기 위해 카카오 ID로 조회
     Optional<Member> findByKakaoId(String kakaoId);
