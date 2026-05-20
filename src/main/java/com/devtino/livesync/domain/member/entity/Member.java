@@ -23,6 +23,9 @@ public class Member {
 
     private String nickname;
 
+    // 마이페이지 - 소속
+    private String affiliation;
+
     // 가입 경로 구분
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -44,10 +47,17 @@ public class Member {
     }
 
     // 프로필 업데이트 (기존 로직 유지)
-    public Member update(String nickanme){
+    public Member update(String nickname) {
         this.nickname = nickname;
         return this;
     }
+
+    public void updateProfile(String nickname, String affiliaiton)
+    {
+        this.nickname = nickname;
+        this.affiliation = affiliaiton;
+    }
+
 
     public void updatePassword(String password) {
         this.password = password;
