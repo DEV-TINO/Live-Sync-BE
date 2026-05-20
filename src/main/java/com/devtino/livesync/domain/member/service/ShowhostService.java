@@ -11,20 +11,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.devtino.livesync.domain.member.dto.ShowhostResponseDto;
 import java.util.List;
 
-/*
- * 쇼호스트 초대 및 관리 서비스
- */
+ // 쇼호스트 초대 및 관리 서비스
 @Service
 @RequiredArgsConstructor
 public class ShowhostService {
 
     private final MemberRepository memberRepository;
 
-    /*
-     * 쇼호스트 초대
-     * - password 없이 생성
-     * - 최초 로그인 시 비밀번호 설정
-     */
+     // 쇼호스트 초대
     @Transactional
     public void inviteShowhost(ShowhostInviteRequest request) {
 
@@ -36,17 +30,15 @@ public class ShowhostService {
         Member member = Member.builder()
                 .loginId(request.getLoginId())
                 .nickname(request.getNickname())
-                .password(null) // 중요: 아직 비밀번호 없음
+                .password(null) // 아직 비밀번호 없음
                 .loginType(LoginType.GENERAL)
                 .role(MemberRole.ROLE_SHOWHOST)
                 .build();
 
         memberRepository.save(member);
     }
-    /*
-     * 쇼호스트 목록 조회
-     * - 관리자 화면 dropdown 용
-     */
+
+     // 쇼호스트 목록 조회 - 관리자 화면
     public List<ShowhostResponseDto> getShowhosts() {
 
         return memberRepository.findAll().stream()

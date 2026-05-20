@@ -66,4 +66,26 @@ public class Memberdto {
         private String nickname;
         private String loginId;
     }
+
+    // 마이페이지 조회 응답
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    public static class MyPageResponse {
+        private Long id;
+        private String loginId;     // 일반 로그인 아이디
+        private String nickname;    // 화면의 "이름"
+        private String affiliation; // 소속
+        private String role;        // 권한 코드 (ROLE_ADMIN)
+        private String roleName;    // 권한 표시명 (전체 관리)
+    }
+
+    // 프로필 수정 요청 - 이름(nickname)과 소속(affiliation)만 받음
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProfileUpdateRequest {
+        private String nickname;
+        private String affiliation;
+    }
 }
