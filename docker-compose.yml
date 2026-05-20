@@ -1,6 +1,12 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7
+    container_name: livesync-redis
+    ports:
+      - "6379:6379"
+    restart: always
   db:
     image: mysql:8.0
     container_name: livesync-db

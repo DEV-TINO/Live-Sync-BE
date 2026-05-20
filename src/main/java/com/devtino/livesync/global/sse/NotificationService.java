@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.scheduling.annotation.Async;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,22 +16,29 @@ import java.util.List;
 public class NotificationService {
 
     private final NotificationEmitterRepository emitterRepository;
-    private final NotificationRepository notificationRepository; // 알림 DB 저장용
+    private final NotificationRepository notificationRepository;
+
+    /*
+     * Redis Publisher 추가
+     */
+    private final NotificationPublisher notificationPublisher;
 
     // 연결 생성
     public SseEmitter connect(Long memberId) {
 
-        SseEmitter emitter = new SseEmitter(60 * 60 * 1000L); // 연결 1시간 유지 -> 시간 지나면 자동으로 끊음
+        SseEmitter emitter = new SseEmitter(60 * 60 * 1000L);
 
         emitterRepository.save(memberId, emitter);
 
-        emitter.onCompletion(() -> emitterRepository.delete(memberId)); // 정상 종료
-        emitter.onTimeout(() -> emitterRepository.delete(memberId)); // 시간 초과
+        emitter.onCompletion(() -> emitterRepository.delete(memberId));
+        emitter.onTimeout(() -> emitterRepository.delete(memberId));
 
-        return emitter; // 클라이언트에게 반환 -> 브라우저가 연결 유지 시작
+        return emitter;
     }
 
-    // 알림 생성 + 저장 + 실시간 전송
+    /*
+     * 알림 생성 + 저장 + Redis publish
+     */
     @Async
     public void send(Long memberId, String title, String content,
                      NotificationType type, String url) {
@@ -50,17 +56,11 @@ public class NotificationService {
 
         notificationRepository.save(notification);
 
-        SseEmitter emitter = emitterRepository.get(memberId); // 해당 유저 현재 연결되어있는지 확인
-
-        if (emitter == null) return;
-
-        try {
-            emitter.send(SseEmitter.event()
-                    .name("notification")
-                    .data(notification)); // 전체 객체 전달
-        } catch (IOException e) {
-            emitterRepository.delete(memberId);
-        }
+        /*
+         * 기존 SSE 직접 전송 제거
+         * Redis로 메시지 발행
+         */
+        notificationPublisher.publish(notification);
     }
 
     // 알림 목록 조회
@@ -75,7 +75,7 @@ public class NotificationService {
 
         notification.setRead(true);
 
-        // 수정된 부분: DB에 반영되도록 save 추가
+        // DB 반영
         notificationRepository.save(notification);
     }
 
