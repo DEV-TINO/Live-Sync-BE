@@ -1,5 +1,6 @@
 package com.devtino.livesync.domain.schedule.dto;
 
+import com.devtino.livesync.domain.file.domain.FileEntity;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,4 +16,12 @@ public class FileDto {
     private String fileName;
 
     private String fileUrl;
+
+    public static FileDto from(FileEntity file) {
+        return FileDto.builder()
+                .id(file.getId())
+                .fileName(file.getFileName())
+                .fileUrl(file.getFileUrl())
+                .build();
+    }
 }

@@ -1,5 +1,6 @@
 package com.devtino.livesync.domain.schedule.dto;
 
+import com.devtino.livesync.domain.member.entity.Member;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -16,4 +17,11 @@ public class ShowhostDto {
      * 프론트에 표시될 이름 (닉네임)
      */
     private String name;
+
+    public static ShowhostDto from(Member member) {
+        return ShowhostDto.builder()
+                .id(member.getId())
+                .name(member.getNickname())
+                .build();
+    }
 }

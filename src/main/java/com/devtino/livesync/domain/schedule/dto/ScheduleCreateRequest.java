@@ -14,6 +14,9 @@ public class ScheduleCreateRequest {
     private String title;
     private String color;
     private String location;
+    private String address;
+    private Double latitude;   // 위도
+    private Double longitude;  // 경도
     private String description;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")

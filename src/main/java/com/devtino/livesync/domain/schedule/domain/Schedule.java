@@ -22,7 +22,10 @@ public class Schedule {
 
     private String title;
     private String color;
-    private String location;
+    private String location;     // ex. 스튜드오 c
+    private String address;      // ex. 서울 성동구 성수이로 113
+    private Double latitude;     // ex. 37.5447(위도)
+    private Double longitude;    // ex. 127.0557(경도)
     private String description;
 
     private LocalDateTime startTime;
