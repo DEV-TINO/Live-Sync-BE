@@ -1,5 +1,7 @@
 package com.devtino.livesync.domain.file.dto;
 
+import com.devtino.livesync.domain.file.domain.FileEntity;
+import com.devtino.livesync.domain.schedule.dto.FileDto;
 import lombok.*;
 
 @Getter
@@ -23,4 +25,12 @@ public class FileResponseDto {
      * 다운로드 URL
      */
     private String fileUrl;
+
+    public static FileDto from(FileEntity file) {
+        return FileDto.builder()
+                .id(file.getId())
+                .fileName(file.getFileName())
+                .fileUrl(file.getFileUrl())
+                .build();
+    }
 }

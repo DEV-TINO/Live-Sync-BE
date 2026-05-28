@@ -51,6 +51,9 @@ public class ScheduleService {
                 .title(request.getTitle())
                 .color(request.getColor())
                 .location(request.getLocation())
+                .address(request.getAddress())      // 주소
+                .latitude(request.getLatitude())    // 위도
+                .longitude(request.getLongitude())  // 경도
                 .description(request.getDescription())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
@@ -163,40 +166,6 @@ public class ScheduleService {
      */
     private ScheduleResponseDto toDto(Schedule schedule) {
 
-        return ScheduleResponseDto.builder()
-                .id(schedule.getId())
-                .title(schedule.getTitle())
-                .color(schedule.getColor())
-                .location(schedule.getLocation())
-                .description(schedule.getDescription())
-                .startTime(schedule.getStartTime())
-                .endTime(schedule.getEndTime())
-
-                /*
-                 * 쇼호스트 리스트 변환
-                 */
-                .showhosts(
-                        schedule.getShowhosts().stream()
-                                .map(m -> ShowhostDto.builder()
-                                        .id(m.getId())
-                                        .name(m.getNickname())
-                                        .build())
-                                .toList()
-                )
-
-                /*
-                 * 파일 리스트 변환
-                 */
-                .files(
-                        schedule.getFiles().stream()
-                                .map(f -> FileDto.builder()
-                                        .id(f.getId())
-                                        .fileName(f.getFileName())
-                                        .fileUrl(f.getFileUrl())
-                                        .build())
-                                .toList()
-                )
-
-                .build();
+        return ScheduleResponseDto.from(schedule);
     }
 }
