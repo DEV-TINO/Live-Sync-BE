@@ -13,6 +13,9 @@ import com.devtino.livesync.domain.workspace.repository.WorkspaceRepository;
 import com.devtino.livesync.domain.workspace.repository.InvitationRepository;
 import com.devtino.livesync.global.config.JwtTokenProvider;
 
+import com.devtino.livesync.global.sse.NotificationService;
+import com.devtino.livesync.domain.notification.entity.NotificationType;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +28,7 @@ public class WorkspaceService {
     private final InvitationRepository invitationRepository;
     private final MemberRepository memberRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final NotificationService notificationService;
 
     // 워크스페이스 생성
     public Workspace createWorkspace(Long ownerId, String name) {
@@ -56,6 +60,8 @@ public class WorkspaceService {
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
 
+        System.out.println("INVITE TARGET = " + member.getId());
+
         Invitation invite = invitationRepository.save(
                 Invitation.builder()
                         .workspaceId(workspaceId)
@@ -63,6 +69,17 @@ public class WorkspaceService {
                         .status(Invitation.InviteStatus.PENDING)
                         .createdAt(LocalDateTime.now())
                         .build()
+        );
+
+        System.out.println("SEND NOTIFICATION TO = " + member.getId());
+
+        notificationService.send(
+                workspaceId,
+                member.getId(),
+                "워크스페이스 초대가 도착했습니다",
+                "워크스페이스 초대",
+                NotificationType.WORKSPACE_INVITE,
+                "/workspace/invites"
         );
 
         return invite.getId();
@@ -92,6 +109,17 @@ public class WorkspaceService {
                         .workspace(workspace)
                         .role(MemberWorkspace.Role.SHOWHOST)
                         .build()
+        );
+
+        Member admin = workspace.getOwner();
+
+        notificationService.send(
+                workspace.getId(),
+                admin.getId(),
+                member.getNickname() + "님이 초대를 수락했습니다",
+                "초대 수락",
+                NotificationType.WORKSPACE_INVITE_ACCEPT,
+                "/workspace/" + workspace.getId()
         );
     }
 
