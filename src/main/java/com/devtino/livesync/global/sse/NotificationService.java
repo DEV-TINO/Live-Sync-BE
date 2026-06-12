@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.scheduling.annotation.Async;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,15 +24,13 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final MemberRepository memberRepository;
     private final WorkspaceRepository workspaceRepository;
-
     private final NotificationPublisher notificationPublisher;
 
     // SSE 연결
     public SseEmitter connect(Long workspaceId, Long memberId) {
 
-        String key = workspaceId + ":" + memberId;
-
-        System.out.println("connect key: " + key);
+        // 핵심: member 기준으로 통일
+        String key = memberId.toString();
 
         SseEmitter emitter = new SseEmitter(60 * 60 * 1000L);
 
@@ -40,10 +39,18 @@ public class NotificationService {
         emitter.onCompletion(() -> emitterRepository.delete(key));
         emitter.onTimeout(() -> emitterRepository.delete(key));
 
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("connect")
+                    .data("connected"));
+        } catch (IOException e) {
+            emitterRepository.delete(key);
+        }
+
         return emitter;
     }
 
-    // 알림 생성 + Redis 발행
+    // 알림 생성 + DB + SSE + Redis
     @Async
     public void send(Long workspaceId, Long memberId,
                      String title, String content,
@@ -55,7 +62,7 @@ public class NotificationService {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new RuntimeException("워크스페이스 없음"));
 
-        // DB 저장용 (Entity)
+        // DB 저장
         Notification notification = Notification.builder()
                 .member(member)
                 .workspace(workspace)
@@ -69,10 +76,10 @@ public class NotificationService {
 
         notificationRepository.save(notification);
 
-        // Redis 전송용 (DTO)
+        // Redis + SSE payload
         NotificationMessage message = new NotificationMessage(
-                workspace.getId(),
-                member.getId(),
+                workspaceId,
+                memberId,
                 title,
                 content,
                 type,
@@ -80,6 +87,24 @@ public class NotificationService {
         );
 
         notificationPublisher.publish(message);
+
+        // SSE push (member 기준)
+        String key = memberId.toString();
+
+        SseEmitter emitter = emitterRepository.get(key);
+
+        if (emitter == null) {
+            System.out.println("SSE 없음 memberId = " + memberId);
+            return;
+        }
+
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("notification")
+                    .data(message));
+        } catch (Exception e) {
+            emitterRepository.delete(key);
+        }
     }
 
     // 목록 조회
