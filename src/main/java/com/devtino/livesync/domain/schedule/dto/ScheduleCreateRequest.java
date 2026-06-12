@@ -18,6 +18,7 @@ public class ScheduleCreateRequest {
     private Double latitude;   // 위도
     private Double longitude;  // 경도
     private String description;
+    private Long workspaceId;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime startTime;
@@ -25,5 +26,5 @@ public class ScheduleCreateRequest {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime endTime;
 
-    private List<Long> showhostIds;
+    private List<String> showhostLoginIds;
 }

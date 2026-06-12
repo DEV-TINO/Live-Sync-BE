@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; // 추가
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -16,61 +16,67 @@ public class SecurityConfig {
                                            JwtTokenProvider jwtTokenProvider) throws Exception {
 
         http
-                // CSRF 비활성화 (JWT 기반이라 필요 없음)
+                /*
+                 * CSRF 비활성화
+                 * JWT 기반 API에서는 세션을 사용하지 않기 때문에 필요 없음
+                 */
                 .csrf(csrf -> csrf.disable())
 
-                // 세션 사용 안함 (JWT)
+                /*
+                 * 세션 사용 안함 (STATELESS)
+                 * 매 요청마다 JWT로 인증 처리
+                 */
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
 
                         /*
-                         * 인증 없이 허용
+                         * 인증 없이 접근 가능한 API
                          */
                         .requestMatchers("/api/auth/**").permitAll()
+
+                        /*
+                         * Swagger / API Docs 허용
+                         */
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
 
+                        /*
+                         * SSE / 알림
+                         */
                         .requestMatchers("/notifications/**").permitAll()
 
-                        // 관리자 전용
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-//
-//                        /*
-//                         * 파일 관련 권한
-//                         */
-//
-//                        // 내 파일 조회 (로그인만)
-//                        .requestMatchers("/files/my").authenticated()
-//
-//                        // 업로드 / 삭제 → 관리자만
-//                        .requestMatchers("/files/upload").hasRole("ADMIN")
-//                        .requestMatchers("/files/{id}").hasRole("ADMIN")
-//
-//                        // 전체 조회 → 관리자만
-//                        .requestMatchers("/files/**").hasRole("ADMIN")
-
                         /*
-                         * 일정
+                         * 관리자 전용 API
+                         * ROLE_ADMIN 기준으로 체크
                          */
-
-                        // 생성 → 관리자만
-                        .requestMatchers("/schedules").hasRole("ADMIN")
-
-                        // 조회 → 관리자 + 쇼호스트
-                        .requestMatchers("/schedules/**").hasAnyRole("ADMIN", "SHOWHOST")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         /*
-                         * 나머지
+                         * 일정 API
+                         * 인증만 필요 (권한은 Service에서 처리)
+                         */
+                        .requestMatchers("/schedules/**").authenticated()
+
+                        /*
+                         * 워크스페이스 API
+                         * 인증만 필요
+                         */
+                        .requestMatchers("/workspace/**").authenticated()
+
+                        /*
+                         * 그 외 모든 요청은 인증 필요
                          */
                         .anyRequest().authenticated()
                 )
 
-                // JWT 필터
+                /*
+                 * JWT 인증 필터 등록
+                 */
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class
@@ -79,6 +85,9 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /*
+     * 비밀번호 암호화 Bean
+     */
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

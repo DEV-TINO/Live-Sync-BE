@@ -3,7 +3,6 @@ package com.devtino.livesync.domain.member.service;
 import com.devtino.livesync.domain.member.dto.Memberdto;
 import com.devtino.livesync.domain.member.entity.LoginType;
 import com.devtino.livesync.domain.member.entity.Member;
-import com.devtino.livesync.domain.member.entity.MemberRole;
 import com.devtino.livesync.domain.member.repository.MemberRepository;
 import com.devtino.livesync.global.config.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -21,14 +20,11 @@ public class GeneralAuthService implements AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
-    /*
-     * 일반 사용자 회원가입
-     */
     @Override
     @Transactional
     public void signup(Memberdto.SignupRequest request) {
 
-        if(memberRepository.findByLoginId(request.getLoginId()).isPresent()) {
+        if (memberRepository.findByLoginId(request.getLoginId()).isPresent()) {
             throw new RuntimeException("이미 존재하는 아이디입니다.");
         }
 
@@ -37,15 +33,11 @@ public class GeneralAuthService implements AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .nickname(request.getNickname())
                 .loginType(LoginType.GENERAL)
-                .role(MemberRole.ROLE_USER)
                 .build();
 
         memberRepository.save(member);
     }
 
-    /*
-     * 일반 로그인
-     */
     @Override
     @Transactional
     public Memberdto.JwtTokenResponse login(Memberdto.LoginRequest request) {
@@ -53,13 +45,13 @@ public class GeneralAuthService implements AuthService {
         Member member = memberRepository.findByLoginId(request.getLoginId())
                 .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
-        if(!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
             throw new RuntimeException("비밀번호가 일치하지 않습니다.");
         }
 
         String accessToken = jwtTokenProvider.createAccessToken(
                 member.getId(),
-                member.getRole().name()
+                "USER"
         );
 
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
@@ -69,20 +61,12 @@ public class GeneralAuthService implements AuthService {
         return new Memberdto.JwtTokenResponse(accessToken, refreshToken);
     }
 
-    /*
-     * 쇼호스트 로그인 (최초 로그인 포함)
-     */
     @Transactional
     public Memberdto.JwtTokenResponse showhostLogin(Memberdto.ShowhostLoginRequest request) {
 
         Member member = memberRepository.findById(request.getMemberId())
                 .orElseThrow(() -> new RuntimeException("유저 없음"));
 
-        if (member.getRole() != MemberRole.ROLE_SHOWHOST) {
-            throw new RuntimeException("쇼호스트가 아닙니다.");
-        }
-
-        // 최초 로그인 → 비밀번호 설정
         if (member.getPassword() == null) {
             member.updatePassword(passwordEncoder.encode(request.getPassword()));
         } else {
@@ -93,7 +77,7 @@ public class GeneralAuthService implements AuthService {
 
         String accessToken = jwtTokenProvider.createAccessToken(
                 member.getId(),
-                member.getRole().name()
+                "SHOWHOST"
         );
 
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
@@ -103,9 +87,6 @@ public class GeneralAuthService implements AuthService {
         return new Memberdto.JwtTokenResponse(accessToken, refreshToken);
     }
 
-    /*
-     * 로그아웃
-     */
     @Override
     public void logout(Long memberId) {
 
@@ -115,9 +96,6 @@ public class GeneralAuthService implements AuthService {
         member.updateRefreshToken(null);
     }
 
-    /*
-     * 토큰 재발급
-     */
     @Override
     @Transactional
     public Memberdto.JwtTokenResponse reissue(String refreshToken) {
@@ -131,7 +109,7 @@ public class GeneralAuthService implements AuthService {
 
         String newAccessToken = jwtTokenProvider.createAccessToken(
                 member.getId(),
-                member.getRole().name()
+                "USER"
         );
 
         String newRefreshToken = jwtTokenProvider.createRefreshToken(member.getId());
