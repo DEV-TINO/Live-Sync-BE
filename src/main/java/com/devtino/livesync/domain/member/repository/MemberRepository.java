@@ -17,11 +17,4 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     // Refresh Token으로 유저 조회
     Optional<Member> findByRefreshToken(String refreshToken);
-
-    /*
-     * 쇼호스트 목록 조회
-     * - ROLE_SHOWHOST인 사용자만 조회
-     * - 프론트에서 dropdown 리스트로 사용
-     */
-    List<Member> findByRole(MemberRole role);
 }

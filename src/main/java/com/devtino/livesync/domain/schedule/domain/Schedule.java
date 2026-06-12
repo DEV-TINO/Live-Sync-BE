@@ -4,6 +4,7 @@ import com.devtino.livesync.domain.file.domain.FileEntity;
 import com.devtino.livesync.domain.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.*;
+import com.devtino.livesync.domain.workspace.entity.Workspace;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,17 +23,17 @@ public class Schedule {
 
     private String title;
     private String color;
-    private String location;     // ex. 스튜드오 c
-    private String address;      // ex. 서울 성동구 성수이로 113
-    private Double latitude;     // ex. 37.5447(위도)
-    private Double longitude;    // ex. 127.0557(경도)
+    private String location;
+    private String address;
+    private Double latitude;
+    private Double longitude;
     private String description;
 
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
     /*
-     * 쇼호스트 여러 명 배정
+     * 쇼호스트 배정
      */
     @ManyToMany
     @JoinTable(
@@ -43,8 +44,37 @@ public class Schedule {
     private List<Member> showhosts;
 
     /*
-     * 일정에 연결된 파일들
+     * 일정 파일
      */
-    @OneToMany(mappedBy = "schedule", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "schedule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FileEntity> files;
+
+    /*
+     * 워크스페이스 기준 소속
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workspace_id")
+    private Workspace workspace;
+
+    public void update(
+            String title,
+            String color,
+            String location,
+            String address,
+            Double latitude,
+            Double longitude,
+            String description,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
+        this.title = title;
+        this.color = color;
+        this.location = location;
+        this.address = address;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.description = description;
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
 }

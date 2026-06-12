@@ -7,10 +7,12 @@ import com.devtino.livesync.domain.member.repository.MemberRepository;
 import com.devtino.livesync.domain.schedule.domain.Schedule;
 import com.devtino.livesync.domain.schedule.dto.ScheduleCreateRequest;
 import com.devtino.livesync.domain.schedule.dto.ScheduleResponseDto;
-import com.devtino.livesync.domain.schedule.dto.ShowhostDto;
-import com.devtino.livesync.domain.schedule.dto.FileDto;
 import com.devtino.livesync.domain.schedule.repository.ScheduleRepository;
 import com.devtino.livesync.domain.notification.entity.NotificationType;
+import com.devtino.livesync.domain.workspace.entity.MemberWorkspace;
+import com.devtino.livesync.domain.workspace.entity.Workspace;
+import com.devtino.livesync.domain.workspace.repository.MemberWorkspaceRepository;
+import com.devtino.livesync.domain.workspace.repository.WorkspaceRepository;
 import com.devtino.livesync.global.sse.NotificationService;
 
 import lombok.RequiredArgsConstructor;
@@ -28,71 +30,93 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final MemberRepository memberRepository;
     private final FileRepository fileRepository;
-
-    // SSE 알림 서비스
+    private final WorkspaceRepository workspaceRepository;
+    private final MemberWorkspaceRepository memberWorkspaceRepository;
     private final NotificationService notificationService;
 
     private final String uploadDir = System.getProperty("user.dir") + "/uploads";
 
-    /*
-     * 일정 생성 + 쇼호스트 배정 + 파일 업로드
-     */
-    public void createSchedule(ScheduleCreateRequest request, List<MultipartFile> files) {
+    // 워크스페이스 소속 조회
+    private MemberWorkspace getMemberWorkspace(Long memberId, Long workspaceId) {
+        return memberWorkspaceRepository
+                .findByMemberIdAndWorkspaceId(memberId, workspaceId)
+                .orElseThrow(() -> new RuntimeException("워크스페이스 접근 불가"));
+    }
 
-        // 1. 쇼호스트 조회
-        List<Member> showhosts = memberRepository.findAllById(request.getShowhostIds());
+    // 관리자 권한 체크
+    private void validateAdmin(Long memberId, Long workspaceId) {
+        MemberWorkspace mw = getMemberWorkspace(memberId, workspaceId);
+
+        if (mw.getRole() != MemberWorkspace.Role.ADMIN) {
+            throw new RuntimeException("관리자 권한 필요");
+        }
+    }
+
+    /*
+     * 일정 생성
+     */
+    public void createSchedule(Long memberId, ScheduleCreateRequest request, List<MultipartFile> files) {
+
+        validateAdmin(memberId, request.getWorkspaceId());
+
+        Workspace workspace = workspaceRepository.findById(request.getWorkspaceId())
+                .orElseThrow(() -> new RuntimeException("워크스페이스 없음"));
+
+        List<Member> showhosts = request.getShowhostLoginIds()
+                .stream()
+                .map(loginId -> memberRepository.findByLoginId(loginId)
+                        .orElseThrow(() -> new RuntimeException("유저 없음: " + loginId)))
+                .toList();
 
         if (showhosts.isEmpty()) {
-            throw new RuntimeException("선택된 쇼호스트가 존재하지 않습니다.");
+            throw new RuntimeException("쇼호스트 없음");
         }
 
-        // 2. 일정 생성
         Schedule schedule = Schedule.builder()
                 .title(request.getTitle())
                 .color(request.getColor())
                 .location(request.getLocation())
-                .address(request.getAddress())      // 주소
-                .latitude(request.getLatitude())    // 위도
-                .longitude(request.getLongitude())  // 경도
+                .address(request.getAddress())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .description(request.getDescription())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
+                .workspace(workspace)
                 .showhosts(showhosts)
                 .build();
 
         scheduleRepository.save(schedule);
 
-        /*
-         * 3. 일정 생성 알림
-         * 쇼호스트에게 일정 배정 알림
-         */
         for (Member showhost : showhosts) {
             notificationService.send(
+                    workspace.getId(),
                     showhost.getId(),
-                    "새로운 일정이 배정되었습니다",
-                    schedule.getTitle() + " (" + schedule.getStartTime() + ")",
+                    "새로운 일정이 배정되었습니다!",
+                    schedule.getTitle(),
                     NotificationType.SCHEDULE,
                     "/schedules/" + schedule.getId()
             );
         }
 
-        // 4. 파일 업로드
+        notificationService.send(
+                workspace.getId(),
+                memberId,
+                "일정 생성 완료",
+                schedule.getTitle(),
+                NotificationType.SCHEDULE,
+                "/schedules/" + schedule.getId()
+        );
+
         if (files != null && !files.isEmpty()) {
 
             File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
+            if (!dir.exists()) dir.mkdirs();
 
             for (MultipartFile file : files) {
 
                 try {
                     String originalName = file.getOriginalFilename();
-
-                    if (originalName == null || originalName.isEmpty()) {
-                        throw new RuntimeException("파일 이름이 없습니다.");
-                    }
-
                     String savedName = UUID.randomUUID() + "_" + originalName;
 
                     File dest = new File(dir, savedName);
@@ -108,64 +132,84 @@ public class ScheduleService {
 
                     fileRepository.save(entity);
 
-                    /*
-                     * 파일 업로드 알림
-                     */
-                    for (Member showhost : showhosts) {
-                        notificationService.send(
-                                showhost.getId(),
-                                "파일이 업로드되었습니다",
-                                originalName + " (" + schedule.getTitle() + ")",
-                                NotificationType.FILE,
-                                "/schedules/" + schedule.getId()
-                        );
-                    }
-
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    throw new RuntimeException("파일 저장 실패");
+                    throw new RuntimeException("파일 저장 실패", e);
                 }
             }
         }
     }
 
     /*
-     * 전체 일정 조회 (관리자)
+     * 전체 일정 (workspace 기준)
      */
-    public List<ScheduleResponseDto> getAllSchedules() {
-
-        return scheduleRepository.findAll().stream()
-                .map(this::toDto)
+    public List<ScheduleResponseDto> getAllSchedules(Long workspaceId) {
+        return scheduleRepository.findByWorkspace_Id(workspaceId)
+                .stream()
+                .map(ScheduleResponseDto::from)
                 .toList();
     }
 
     /*
-     * 일정 상세 조회
+     * 내 일정 (workspace + member 기준)
      */
-    public ScheduleResponseDto getSchedule(Long id) {
+    public List<ScheduleResponseDto> getMySchedules(Long memberId, Long workspaceId) {
+        return scheduleRepository.findByWorkspace_Id(workspaceId)
+                .stream()
+                .filter(s -> s.getShowhosts()
+                        .stream()
+                        .anyMatch(m -> m.getId().equals(memberId)))
+                .map(ScheduleResponseDto::from)
+                .toList();
+    }
 
-        Schedule schedule = scheduleRepository.findById(id)
+    public ScheduleResponseDto getSchedule(Long memberId, Long scheduleId) {
+
+        Schedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new RuntimeException("일정 없음"));
 
-        return toDto(schedule);
-    }
-
-    /*
-     * 쇼호스트 → 내 일정 조회
-     */
-    public List<ScheduleResponseDto> getMySchedules(Long memberId) {
-
-        return scheduleRepository.findByShowhosts_Id(memberId)
+        boolean hasAccess = memberWorkspaceRepository
+                .findByMemberId(memberId)
                 .stream()
-                .map(this::toDto)
-                .toList();
-    }
+                .anyMatch(mw ->
+                        mw.getWorkspace().getId().equals(schedule.getWorkspace().getId())
+                );
 
-    /*
-     * Entity → DTO 변환
-     */
-    private ScheduleResponseDto toDto(Schedule schedule) {
+        if (!hasAccess) {
+            throw new RuntimeException("워크스페이스 접근 불가");
+        }
 
         return ScheduleResponseDto.from(schedule);
+    }
+
+    public void updateSchedule(Long memberId, Long scheduleId, ScheduleCreateRequest request) {
+
+        Schedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new RuntimeException("일정 없음"));
+
+        validateAdmin(memberId, schedule.getWorkspace().getId());
+
+        schedule.update(
+                request.getTitle(),
+                request.getColor(),
+                request.getLocation(),
+                request.getAddress(),
+                request.getLatitude(),
+                request.getLongitude(),
+                request.getDescription(),
+                request.getStartTime(),
+                request.getEndTime()
+        );
+
+        scheduleRepository.save(schedule);
+    }
+
+    public void deleteSchedule(Long memberId, Long scheduleId) {
+
+        Schedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new RuntimeException("일정 없음"));
+
+        validateAdmin(memberId, schedule.getWorkspace().getId());
+
+        scheduleRepository.delete(schedule);
     }
 }

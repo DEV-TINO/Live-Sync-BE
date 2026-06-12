@@ -20,19 +20,26 @@ public class NotificationController {
     private final NotificationService notificationService;
     private final JwtTokenProvider jwtTokenProvider;
 
-    // SSE 연결
+    // SSE 연결 (workspace 기준으로 구독)
     @Operation(summary = "SSE 구독", description = "서버와 연결을 유지하며 실시간 알림을 수신한다.")
     @GetMapping("/subscribe")
     public SseEmitter subscribe(@RequestParam String token) {
+
         Long memberId = Long.parseLong(jwtTokenProvider.getMemberId(token));
-        return notificationService.connect(memberId);
+
+        // 추가: 토큰에서 workspaceId 추출
+        Long workspaceId = jwtTokenProvider.getWorkspaceId(token);
+
+        return notificationService.connect(workspaceId, memberId);
     }
 
+    // 테스트 알림
     @Operation(summary = "알림 테스트", description = "테스트용 알림을 강제로 보낸다.")
     @GetMapping("/test")
     public void test() {
         notificationService.send(
-                1L,
+                1L, // workspaceId
+                1L, // memberId
                 "테스트 제목",
                 "알림 도착!",
                 NotificationType.SCHEDULE,
@@ -40,7 +47,7 @@ public class NotificationController {
         );
     }
 
-    // 알림 목록 조회 (오프라인 대비)
+    // 알림 목록 조회
     @Operation(summary = "알림 목록 조회", description = "사용자의 전체 알림을 최신순으로 조회한다.")
     @GetMapping
     public List<Notification> getNotifications(@RequestParam String token) {
@@ -49,14 +56,12 @@ public class NotificationController {
     }
 
     // 읽음 처리
-    @Operation(summary = "알림 읽음 처리", description = "특정 알림을 읽음 상태로 변경한다.")
     @PatchMapping("/{id}/read")
     public void readNotification(@PathVariable Long id) {
         notificationService.readNotification(id);
     }
 
-    // unread count 조회
-    @Operation(summary = "읽지 않은 알림 개수", description = "읽지 않은 알림 개수를 반환한다.")
+    // unread count
     @GetMapping("/unread-count")
     public long getUnreadCount(@RequestParam String token) {
         Long memberId = Long.parseLong(jwtTokenProvider.getMemberId(token));
