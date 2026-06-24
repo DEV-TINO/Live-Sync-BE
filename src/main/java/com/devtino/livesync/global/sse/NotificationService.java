@@ -113,9 +113,13 @@ public class NotificationService {
     }
 
     // 읽음 처리
-    public void readNotification(Long id) {
+    public void readNotification(Long memberId, Long id) {
         Notification notification = notificationRepository.findById(id)
                 .orElseThrow();
+
+        if (!notification.getMember().getId().equals(memberId)) {
+            throw new RuntimeException("알림 접근 권한 없음");
+        }
 
         notification.setRead(true);
         notificationRepository.save(notification);

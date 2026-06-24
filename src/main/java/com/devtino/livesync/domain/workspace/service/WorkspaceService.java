@@ -55,7 +55,15 @@ public class WorkspaceService {
     }
 
     // 초대 생성 (loginId 기반)
-    public Long invite(Long workspaceId, String loginId) {
+    public Long invite(Long requesterId, Long workspaceId, String loginId) {
+
+        MemberWorkspace requesterWorkspace = memberWorkspaceRepository
+                .findByMemberIdAndWorkspaceId(requesterId, workspaceId)
+                .orElseThrow(() -> new RuntimeException("워크스페이스 접근 권한 없음"));
+
+        if (requesterWorkspace.getRole() != MemberWorkspace.Role.ADMIN) {
+            throw new RuntimeException("관리자 권한 필요");
+        }
 
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new RuntimeException("유저 없음"));

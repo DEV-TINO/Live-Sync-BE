@@ -48,7 +48,7 @@ public class SecurityConfig {
                         /*
                          * SSE / 알림
                          */
-                        .requestMatchers("/notifications/**").permitAll()
+                        .requestMatchers("/notifications/**").authenticated()
 
                         /*
                          * 관리자 전용 API
