@@ -142,7 +142,9 @@ public class ScheduleService {
     /*
      * 전체 일정 (workspace 기준)
      */
-    public List<ScheduleResponseDto> getAllSchedules(Long workspaceId) {
+    public List<ScheduleResponseDto> getAllSchedules(Long memberId, Long workspaceId) {
+        validateAdmin(memberId, workspaceId);
+
         return scheduleRepository.findByWorkspace_Id(workspaceId)
                 .stream()
                 .map(ScheduleResponseDto::from)
@@ -153,6 +155,8 @@ public class ScheduleService {
      * 내 일정 (workspace + member 기준)
      */
     public List<ScheduleResponseDto> getMySchedules(Long memberId, Long workspaceId) {
+        getMemberWorkspace(memberId, workspaceId);
+
         return scheduleRepository.findByWorkspace_Id(workspaceId)
                 .stream()
                 .filter(s -> s.getShowhosts()
