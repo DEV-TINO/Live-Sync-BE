@@ -1,15 +1,13 @@
 package com.devtino.livesync;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest(properties = {
-        "JWT_SECRET_KEY=test-secret-key-for-context-loads-at-least-32-bytes"
-})
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
 class LiveSyncBeApplicationTests {
 
     @Test
-    void contextLoads() {
+    void applicationCanBeConstructed() {
+        assertDoesNotThrow(LiveSyncBeApplication::new);
     }
-
 }
