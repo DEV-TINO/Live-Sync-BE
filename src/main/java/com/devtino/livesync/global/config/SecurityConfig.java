@@ -1,7 +1,11 @@
 package com.devtino.livesync.global.config;
 
+import com.devtino.livesync.global.common.exception.ErrorCode;
+import com.devtino.livesync.global.common.response.ApiResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -13,7 +17,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           JwtTokenProvider jwtTokenProvider) throws Exception {
+                                           JwtTokenProvider jwtTokenProvider,
+                                           ObjectMapper objectMapper) throws Exception {
 
         http
                 /*
@@ -28,6 +33,25 @@ public class SecurityConfig {
                  */
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(ErrorCode.AUTHENTICATION_REQUIRED.getStatus().value());
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(
+                                    objectMapper.writeValueAsString(ApiResponse.fail(ErrorCode.AUTHENTICATION_REQUIRED))
+                            );
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(ErrorCode.FORBIDDEN.getStatus().value());
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(
+                                    objectMapper.writeValueAsString(ApiResponse.fail(ErrorCode.FORBIDDEN))
+                            );
+                        })
+                )
 
                 .authorizeHttpRequests(auth -> auth
 
@@ -49,6 +73,15 @@ public class SecurityConfig {
                          * SSE / 알림
                          */
                         .requestMatchers("/notifications/**").authenticated()
+
+                        /*
+                         * 파일 API
+                         * 업로드/삭제/전체 조회는 관리자, 공개 조회/다운로드는 인증 사용자
+                         */
+                        .requestMatchers("/files/upload").hasRole("ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/files/**").hasRole("ADMIN")
+                        .requestMatchers("/files").hasRole("ADMIN")
+                        .requestMatchers("/files/showhost", "/files/download/**").authenticated()
 
                         /*
                          * 관리자 전용 API
