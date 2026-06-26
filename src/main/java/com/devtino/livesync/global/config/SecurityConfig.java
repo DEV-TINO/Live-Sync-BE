@@ -76,9 +76,8 @@ public class SecurityConfig {
 
                         /*
                          * 파일 API
-                         * 업로드/삭제/전체 조회는 관리자, 공개 조회/다운로드는 인증 사용자
+                         * 삭제/전체 조회는 관리자, 공개 조회/다운로드는 인증 사용자
                          */
-                        .requestMatchers("/files/upload").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/files/**").hasRole("ADMIN")
                         .requestMatchers("/files").hasRole("ADMIN")
                         .requestMatchers("/files/showhost", "/files/download/**").authenticated()

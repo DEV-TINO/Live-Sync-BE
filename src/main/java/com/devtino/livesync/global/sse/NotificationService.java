@@ -50,7 +50,7 @@ public class NotificationService {
         return emitter;
     }
 
-    // 알림 생성 + DB + SSE + Redis
+    // 알림 생성 + DB 저장 + Redis 발행
     @Async
     public void send(Long workspaceId, Long memberId,
                      String title, String content,
@@ -87,24 +87,6 @@ public class NotificationService {
         );
 
         notificationPublisher.publish(message);
-
-        // SSE push (member 기준)
-        String key = memberId.toString();
-
-        SseEmitter emitter = emitterRepository.get(key);
-
-        if (emitter == null) {
-            System.out.println("SSE 없음 memberId = " + memberId);
-            return;
-        }
-
-        try {
-            emitter.send(SseEmitter.event()
-                    .name("notification")
-                    .data(message));
-        } catch (Exception e) {
-            emitterRepository.delete(key);
-        }
     }
 
     // 목록 조회

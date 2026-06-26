@@ -25,20 +25,21 @@ public class NotificationSubscriber implements MessageListener {
             NotificationMessage msg =
                     objectMapper.readValue(body, NotificationMessage.class);
 
-            // key 동일하게 맞추기
-            String key = msg.getWorkspaceId() + ":" + msg.getMemberId();
-
-            System.out.println("SUBSCRIBER KEY = " + key);
+            // NotificationService.connect와 같은 member 기준 key를 사용한다.
+            String key = msg.getMemberId().toString();
 
             SseEmitter emitter = emitterRepository.get(key);
 
             if (emitter != null) {
-                System.out.println("EMITTER FOUND");
-                emitter.send(
-                        SseEmitter.event()
-                                .name("notification")
-                                .data(msg)
-                );
+                try {
+                    emitter.send(
+                            SseEmitter.event()
+                                    .name("notification")
+                                    .data(msg)
+                    );
+                } catch (Exception e) {
+                    emitterRepository.delete(key);
+                }
             }
 
         } catch (Exception e) {

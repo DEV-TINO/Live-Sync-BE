@@ -5,21 +5,17 @@ import com.devtino.livesync.domain.file.dto.FileResponseDto;
 import com.devtino.livesync.domain.file.service.FileService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -31,23 +27,6 @@ class FileControllerTest {
     private final MockMvc mockMvc = MockMvcBuilders
             .standaloneSetup(new FileController(fileService))
             .build();
-
-    @Test
-    void uploadFilesReturnsUploadedUrls() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "files",
-                "test.txt",
-                "text/plain",
-                "hello".getBytes()
-        );
-        when(fileService.uploadFiles(anyList(), any()))
-                .thenReturn(List.of("/files/download/10"));
-
-        mockMvc.perform(multipart("/files/upload")
-                        .file(file))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0]").value("/files/download/10"));
-    }
 
     @Test
     void getFilesReturnsFileList() throws Exception {
