@@ -111,12 +111,18 @@ public class ScheduleService {
         if (files != null && !files.isEmpty()) {
 
             File dir = new File(uploadDir);
-            if (!dir.exists()) dir.mkdirs();
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw new RuntimeException("파일 저장 실패");
+            }
 
             for (MultipartFile file : files) {
+                String originalName = file.getOriginalFilename();
+
+                if (file.isEmpty() || originalName == null || originalName.isBlank()) {
+                    throw new RuntimeException("업로드할 파일이 없습니다.");
+                }
 
                 try {
-                    String originalName = file.getOriginalFilename();
                     String savedName = UUID.randomUUID() + "_" + originalName;
 
                     File dest = new File(dir, savedName);
@@ -125,12 +131,13 @@ public class ScheduleService {
                     FileEntity entity = FileEntity.builder()
                             .fileName(originalName)
                             .fileKey(savedName)
-                            .fileUrl("/files/" + savedName)
                             .schedule(schedule)
                             .isPublic(true)
                             .build();
 
-                    fileRepository.save(entity);
+                    FileEntity savedFile = fileRepository.save(entity);
+                    savedFile.setFileUrl("/files/download/" + savedFile.getId());
+                    fileRepository.save(savedFile);
 
                 } catch (Exception e) {
                     throw new RuntimeException("파일 저장 실패", e);

@@ -10,15 +10,11 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -30,15 +26,6 @@ import java.util.List;
 public class FileController {
 
     private final FileService fileService;
-
-    @PostMapping(value = "/upload", consumes = "multipart/form-data")
-    @Operation(summary = "파일 업로드", description = "관리자가 여러 개의 파일을 업로드합니다.")
-    public List<String> uploadFiles(
-            @RequestPart("files") List<MultipartFile> files,
-            @AuthenticationPrincipal Long memberId
-    ) {
-        return fileService.uploadFiles(files, memberId);
-    }
 
     @GetMapping
     @Operation(summary = "파일 목록 조회", description = "관리자가 전체 파일 목록을 조회합니다.")
